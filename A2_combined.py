@@ -135,6 +135,7 @@ if __name__ == '__main__':
             file_tag = ''
         else:
             file_tag = '_' + '-'.join(f"{item}" for item in PROMPT_MODIFIER['mode'])
+        modifier._modify_plan['egn'] = 1
     else:
         file_tag = ''
         modifier = None

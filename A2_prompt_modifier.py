@@ -1,4 +1,5 @@
 import random
+from baseline import stream_jsonl
 
 class PromptModifier:
     """
@@ -8,8 +9,10 @@ class PromptModifier:
         and 4th (diversity)
         parts of the analytical experiment
     """
-    def __init__(self):
+    def __init__(self, max_testcase: int = 3):
         self._testcases_path = "pre_generated_data/shortened_generated_testcase.jsonl"
+        self._max_testcase = max_testcase
+        self.testcases_subset = []
         # 3 versions for system prompt (complexity)
         self._system_prompts={
             "short" : "Environment: ipython",
@@ -69,7 +72,7 @@ class PromptModifier:
         #     klh : knowledge header  int:(>0<~5) or str: 'D'
         #     kle : knowledge end     str:(>none</package/border/both/D)
         #     soh : solution header   int:(>0<~5) or str: 'D'
-        #     egn : example number    int:(>0<~3) or str: 'D'
+        #     egn : example number    int:(>0<~self._max_testcase) or str: 'D'
         #     soe : solution end      int:(>0<~3) or str: 'D'
         self._modify_plan={
             'sys' : 'base',
@@ -95,7 +98,7 @@ class PromptModifier:
         klh : knowledge header  >>  int: (>0<~5) or str: 'D'
         kle : knowledge end     >>  str: (>none</package/border/both/D)
         soh : solution header   >>  int: (>0<~5) or str: 'D'
-        egn : example number    >>  int: (>0<~3) or str: 'D'
+        egn : example number    >>  int: (>0<~self._max_testcase) or str: 'D'
         soe : solution end      >>  int: (>0<~3) or str: 'D'
         preset : preset         >>  str: (default/complex/simple/!ULTRA_DIVERSE!)
         """
@@ -195,6 +198,66 @@ class PromptModifier:
 
         return inputs
 
+    def _load_necessary_testcases(self, inputs):
+        """
+        load pre-generated testcases, keep relevant subset only
+        """
+        _lst = []
+        for _item in inputs:
+            if _item['task_id'] not in _lst:
+                _lst.append(_item['task_id'])
+        _test_cases = [{
+                'task_id': _item['task_id'],
+                'test':_item['test'].split('\n    assert ')[1]
+            }
+            for _item in stream_jsonl(self._testcases_path) if _item['task_id'] in _lst]
+        self.testcases_subset = _test_cases.copy()
+
+    def _get_test_case(self, task_id, num_case):
+        _lst = [_line for _line in self.testcases_subset if _line['task_id'] == task_id]
+        assert num_case <= len(_lst), f"too few test cases for {task_id}"
+        _iter_cap = 10
+        _unit = self._corpus['egn'].split('{%}')
+        _string = ''
+        _selected_indices = []
+        for i in range(num_case):
+            for _ in range(_iter_cap):
+                try:
+                    _not_picked_indices = [j for j in range(len(_lst)) if j not in _selected_indices]
+                    _idx = random.choice(_not_picked_indices)
+                    if " == " in _lst[_idx]['test']:
+                        _temp = _lst[_idx]['test'].split(" == ")
+                        _input = _temp[0][_temp[0].find('(') + 1:_temp[0].rfind(')')]
+                        _output = _temp[1].strip()
+                        if _lst[_idx]['test'].startswith('not '):
+                            if _output in ('True', 'False'):
+                                _output = {'True': False, 'False': True}[_output]
+                            else:
+                                continue
+                        elif _output in ('True', 'False'):
+                            _output = {'True': True, 'False': False}[_output]
+                        else:
+                            # numerical result
+                            if _output[0] in '0123456789':
+                                j = 0
+                                while _output[j] in '0123456789':
+                                    j += 1
+                                _output = _output[:j]
+                            # string result
+                            elif _output[0] in ('"', "'"):
+
+                                raise NotImplementedError
+                    else:
+                        raise NotImplementedError(f'bad test case for {task_id}, try another.')
+                except Exception as e:
+                    print(str(e))
+                    continue
+            _string += _unit[0] + str(i) + _unit[1]
+        raise NotImplementedError
+
+    def _create_demonstration(self, test_cases):
+        raise NotImplementedError
+
     def change_solution_prompt(self, inputs):
         if (self._modify_plan['soh'], self._modify_plan['egn'], self._modify_plan['soe']) == (0,0,0):
             print(f"using default settings for solution part.")
@@ -213,9 +276,18 @@ class PromptModifier:
         # add demonstrations
         if self._modify_plan['egn'] == 'D':
             print(f"demonstrations !!DIVERSE!!")
+            for line in inputs:
+                _cases = random.randint(0, self._max_testcase)
+                if _cases > 0:
+                    line['sub_prompt_1'][3]['content'] += '\n\nHere are some example test cases:\n'
+                    line['sub_prompt_1'][3]['content'] += self._create_demonstration(self._get_test_case(line['task_id'], _cases))
             raise NotImplementedError
         elif self._modify_plan['egn'] > 0:
             print(f"modifying {len(inputs)} samples, adding '{self._modify_plan['egn']}' demonstrations")
+            self._load_necessary_testcases(inputs)
+            for line in inputs:
+                line['sub_prompt_1'][3]['content'] += '\n\nHere are some example test cases:\n'
+                line['sub_prompt_1'][3]['content'] += self._create_demonstration(self._get_test_case(line['task_id'], self._modify_plan['egn']))
             raise NotImplementedError
         else:
             print(f"no extra demonstrations added")
