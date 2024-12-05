@@ -22,12 +22,12 @@ class PromptModifier:
         }
         # 6 paraphrased versions of the reasoning padding's header (diversity)
         self._knowledge_header={
-            0: "For the above question, could you briefly teach me how to solve it step by step in natural language?",
-            1: "Could you tell me how to complete the previous function step by step in natural language?",
-            2: "Could you explain how to complete the function in detail, using simple language and a step-by-step approach?",
-            3: "Could you use natural language to explain the solution to the previous problem in simple, clear steps?",
-            4: "Would you walk me through how to solve the question above, using natural language?",
-            5: "Please break down the solution to the question above in an easy-to-follow manner and tell me in natural language."
+            0: "\nFor the above question, could you briefly teach me how to solve it step by step in natural language?",
+            1: "\nCould you tell me how to complete the previous function step by step in natural language?",
+            2: "\nCould you explain how to complete the function in detail, using simple language and a step-by-step approach?",
+            3: "\nCould you use natural language to explain the solution to the previous problem in simple, clear steps?",
+            4: "\nWould you walk me through how to solve the question above, using natural language?",
+            5: "\nPlease break down the solution to the question above in an easy-to-follow manner and tell me in natural language."
         }
         # end of reasoning and some extra crucial points (complexity and diversity)
         self._knowledge_ending={
@@ -128,12 +128,68 @@ class PromptModifier:
                 else:
                     print(f"{k} is not a valid key.")
 
-    def change_system_prompt(self, prompts):
+    def change_system_prompt(self, inputs):
         """
         change the system prompt according to modify plan
         """
-        if self._modify_plan['sys'] != 'base':
-            print(f"modifying {len(prompts)} samples, change the system prompt to '{self._modify_plan['sys']}' version")
-            for line in prompts:
-                raise NotImplementedError
-        return prompts
+        if self._modify_plan['sys'] not in ('base', 'D') :
+            print(f"modifying {len(inputs)} samples, change the system prompt to '{self._modify_plan['sys']}' version")
+            for line in inputs:
+                line['sub_prompt_0'][0]['content'] = self._corpus['sys'][self._modify_plan['sys']]
+        elif self._modify_plan['sys'] == 'D':
+            print(f"sys prompt !!DIVERSE!!")
+            for line in inputs:
+                line['sub_prompt_0'][0]['content'] = random.choice(list(self._corpus['sys'].values()))
+        return inputs
+
+    def _create_knowledge_ending(self, method):
+        """
+        create knowledge ending according to given method(modify plan)
+        """
+        if method == 'none':
+            return '\n' + self._corpus['kle']['end']
+        elif method == 'package':
+            return '\nrequirements:\n1.' + self._corpus['kle']['package'] + '\n2.' + self._corpus['kle']['end']
+        elif method == 'border':
+            return '\nrequirements:\n1.' + self._corpus['kle']['border'] + '\n2.' + self._corpus['kle']['end']
+        elif method == 'both':
+            return '\nrequirements:\n1.' + self._corpus['kle']['package'] + '\n2.' + self._corpus['kle']['border'] + '\n3.' + self._corpus['kle']['end']
+        else:
+            raise KeyError(f"{method} is not in the corpus.")
+
+    def change_knowledge_prompt(self, inputs):
+        """
+        change the knowledge (rationale) prompt padding
+        """
+        # default setting
+        if (self._modify_plan['klh'], self._modify_plan['kle']) == (0, 'none'):
+            print(f"using default settings for knowledge part.")
+            return inputs
+        # erase the padding
+        for line in inputs:
+            _index2 = line['sub_prompt_0'][1]['content'].rfind('\n', 0, line['sub_prompt_0'][1]['content'].rfind('\n'))
+            if _index2 == -1:
+                raise IndexError("Too few '\\n' in knowledge prompt, there must be something wrong with the original prompt.")
+            line['sub_prompt_0'][1]['content'] = line['sub_prompt_0'][1]['content'][:_index2]
+
+        # add new header
+        if self._modify_plan['klh'] == 'D':
+            print(f"knowledge header !!DIVERSE!!")
+            for line in inputs:
+                line['sub_prompt_0'][1]['content'] += random.choice(list(self._corpus['klh'].values()))
+        else:
+            print(f"modifying {len(inputs)} samples, change the knowledge header to '{self._modify_plan['klh']}' version")
+            for line in inputs:
+                line['sub_prompt_0'][1]['content'] += self._corpus['klh'][self._modify_plan['klh']]
+
+        # add new ending
+        if self._modify_plan['kle'] == 'D':
+            print(f"knowledge ending !!DIVERSE!!")
+            for line in inputs:
+                line['sub_prompt_0'][1]['content'] += self._create_knowledge_ending(random.choice(('none', 'package', 'border', 'both')))
+        else:
+            print(f"modifying {len(inputs)} samples, change the knowledge ending to '{self._modify_plan['kle']}' version")
+            for line in inputs:
+                line['sub_prompt_0'][1]['content'] += self._create_knowledge_ending(self._modify_plan['kle'])
+
+        return inputs

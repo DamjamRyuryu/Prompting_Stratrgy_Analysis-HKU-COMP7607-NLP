@@ -17,9 +17,10 @@ EARLY_STOP = False
 #     soh : solution header   int:(>0<~5) or str: 'D'
 #     egn : example number    int:(>0<~3) or str: 'D'
 #     soe : solution end      int:(>0<~3) or str: 'D'
+#     preset : preset         str: (default/complex/simple/!ULTRA_DIVERSE!)
 # 'mode' in PROMPT_MODIFIER can be either ('base', 0, 'none', 0, 0, 0) or ('default',)
 #       6 params means customized setting, 1 param means using existing presets
-PROMPT_MODIFIER = {'enabled': True, 'mode': ('simple',)}
+PROMPT_MODIFIER = {'enabled': True, 'mode': ('simple',), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
 DISTURBER = {'enabled': False, 'ratio': 1.0}
 BATCH_SIZE = 10
 TOP_K = 5
@@ -123,6 +124,12 @@ if __name__ == '__main__':
     if PROMPT_MODIFIER['enabled']:
         print("Prompt modifier created")
         modifier = PromptModifier()
+        if len(PROMPT_MODIFIER['mode']) == 1:
+            if PROMPT_MODIFIER['mode'] == '!ULTRA_DIVERSE!':
+                print("ULTRA_DIVERSE!!!!!!!!!!!")
+            modifier.set_plan(preset=PROMPT_MODIFIER['mode'][0])
+        elif len(PROMPT_MODIFIER['mode']) == 6:
+            modifier.set_plan(**{PROMPT_MODIFIER['keys'][index]:PROMPT_MODIFIER['mode'][index] for index in range(6)})
         file_tag = '-'.join(f"{item}" for item in PROMPT_MODIFIER['mode'])
     else:
         file_tag = ''
@@ -136,11 +143,7 @@ if __name__ == '__main__':
     else:
         print('loading the sampled data...')
         inputs = [item for item in stream_jsonl(CHECKPOINTS['step 0'])]
-    # TODO 1: system prompt modification
     prompts = get_prompt_list_init(inputs)
-    if modifier:
-        # switch system prompt
-        prompts = modifier.change_system_prompt(prompts)
     history = [{'task_id': item['task_id']} for item in inputs]
     concatenate_dict(history, inputs, ['input'], ['prompt'])
     concatenate_dict(history, prompts, ['sub_prompt_0'], ['prompt'])
@@ -148,6 +151,15 @@ if __name__ == '__main__':
     # Step 1: request for knowledge
     slow_print('first step start, ask for knowledge...')
     history = get_batch(history, BATCH_SIZE)
+
+    # TODO 1: system & knowledge prompt modification
+    if modifier:
+        # switch system prompt
+        prompts = modifier.change_system_prompt(history)
+    if modifier:
+        # switch knowledge prompt
+        prompts = modifier.change_knowledge_prompt(history)
+
     step = 0
     if not os.path.exists(CHECKPOINTS['step 1'] + file_tag + '.jsonl'):
         res_1 = service.request_response([line[f'sub_prompt_{step}'] for line in history])
@@ -155,7 +167,7 @@ if __name__ == '__main__':
     else:
         res_1 = [item['response'] for item in stream_jsonl(CHECKPOINTS['step 1'] + file_tag + '.jsonl')]
 
-    # Experiment 1: disturb the rationale!
+    # TODO 2: disturb the rationale!
     if DISTURBER['enabled']:
         res = disturb_rationale(res_1, BATCH_SIZE, DISTURBER['ratio']) if DISTURBER['enabled'] else res_1
         file_tag = f'ds{DISTURBER['ratio']}.jsonl'
@@ -164,9 +176,19 @@ if __name__ == '__main__':
         res = res_1
         file_tag = f'no_ds.jsonl'
         slow_print('disturber off')
+
     # Step 2: request for solution
     slow_print('knowledge get, ask for solution...')
     step = next_step_prompts(history, res, step)
+
+    # TODO 3: system & knowledge prompt modification
+    if modifier:
+        # switch system prompt
+        prompts = modifier.change_system_prompt(history)
+    if modifier:
+        # switch system prompt
+        prompts = modifier.change_knowledge_prompt(history)
+
     if not os.path.exists(CHECKPOINTS['step 2'] + file_tag):
         res = service.request_response([line[f'sub_prompt_{step}'] for line in history])  # the response is solution now
         write_jsonl(CHECKPOINTS['step 2'] + file_tag, [{'response': item} for item in res])
