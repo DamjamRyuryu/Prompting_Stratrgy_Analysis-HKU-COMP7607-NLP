@@ -44,8 +44,8 @@ SELF_REFINEMENT={
 
 CHECKPOINTS = {
     'step 0': 'temp_folder/sampled_data.jsonl',
-    'step 1': 'temp_folder/combined_1_temp_',
-    'step 2': 'temp_folder/combined_2_temp_',
+    'step 1': 'temp_folder/combined_1_temp',
+    'step 2': 'temp_folder/combined_2_temp',
     'step 3': 'temp_folder/combined_3_temp.jsonl',
 }
 
@@ -130,7 +130,11 @@ if __name__ == '__main__':
             modifier.set_plan(preset=PROMPT_MODIFIER['mode'][0])
         elif len(PROMPT_MODIFIER['mode']) == 6:
             modifier.set_plan(**{PROMPT_MODIFIER['keys'][index]:PROMPT_MODIFIER['mode'][index] for index in range(6)})
-        file_tag = '-'.join(f"{item}" for item in PROMPT_MODIFIER['mode'])
+
+        if PROMPT_MODIFIER['mode'] in (('default', ), ('base', 0, 'none', 0, 0, 0)):
+            file_tag = ''
+        else:
+            file_tag = '_' + '-'.join(f"{item}" for item in PROMPT_MODIFIER['mode'])
     else:
         file_tag = ''
         modifier = None
@@ -155,10 +159,9 @@ if __name__ == '__main__':
     # TODO 1: system & knowledge prompt modification
     if modifier:
         # switch system prompt
-        prompts = modifier.change_system_prompt(history)
-    if modifier:
+        history = modifier.change_system_prompt(history)
         # switch knowledge prompt
-        prompts = modifier.change_knowledge_prompt(history)
+        history = modifier.change_knowledge_prompt(history)
 
     step = 0
     if not os.path.exists(CHECKPOINTS['step 1'] + file_tag + '.jsonl'):
@@ -170,12 +173,12 @@ if __name__ == '__main__':
     # TODO 2: disturb the rationale!
     if DISTURBER['enabled']:
         res = disturb_rationale(res_1, BATCH_SIZE, DISTURBER['ratio']) if DISTURBER['enabled'] else res_1
-        file_tag = f'ds{DISTURBER['ratio']}.jsonl'
-        slow_print(f'disturber on, ratio: {DISTURBER['ratio']}')
+        file_tag += f'_ds{DISTURBER['ratio']}'
+        print(f'disturber on, ratio: {DISTURBER['ratio']}')
     else:
         res = res_1
-        file_tag = f'no_ds.jsonl'
-        slow_print('disturber off')
+        file_tag += f'_no_ds'
+        print('disturber off')
 
     # Step 2: request for solution
     slow_print('knowledge get, ask for solution...')
@@ -184,16 +187,13 @@ if __name__ == '__main__':
     # TODO 3: system & knowledge prompt modification
     if modifier:
         # switch system prompt
-        prompts = modifier.change_system_prompt(history)
-    if modifier:
-        # switch system prompt
-        prompts = modifier.change_knowledge_prompt(history)
+        history = modifier.change_solution_prompt(history)
 
-    if not os.path.exists(CHECKPOINTS['step 2'] + file_tag):
+    if not os.path.exists(CHECKPOINTS['step 2'] + file_tag + '.jsonl'):
         res = service.request_response([line[f'sub_prompt_{step}'] for line in history])  # the response is solution now
-        write_jsonl(CHECKPOINTS['step 2'] + file_tag, [{'response': item} for item in res])
+        write_jsonl(CHECKPOINTS['step 2'] + file_tag + '.jsonl', [{'response': item} for item in res])
     else:
-        res = [item['response'] for item in stream_jsonl(CHECKPOINTS['step 2'] + file_tag)]
+        res = [item['response'] for item in stream_jsonl(CHECKPOINTS['step 2'] + file_tag + '.jsonl')]
 
     if EARLY_STOP:
         concatenate_str(history, res, 'output', processing=True)
@@ -201,7 +201,7 @@ if __name__ == '__main__':
         sys.exit('Early stop activated.')
 
     # Step 3: load pre-generated testcases and verify the samples
-    slow_print('Solution get. Loading testcases...')
+    print('Solution get. Loading testcases...')
     if not os.path.exists(TEST_FILE):
         sys.exit('Testcases file NOT FOUND.')
     else:

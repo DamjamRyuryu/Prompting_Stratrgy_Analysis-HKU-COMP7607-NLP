@@ -9,6 +9,7 @@ class PromptModifier:
         parts of the analytical experiment
     """
     def __init__(self):
+        self._testcases_path = "pre_generated_data/shortened_generated_testcase.jsonl"
         # 3 versions for system prompt (complexity)
         self._system_prompts={
             "short" : "Environment: ipython",
@@ -50,7 +51,7 @@ class PromptModifier:
         self._solution_ending = {
             0: "\nBe attention, you should only output the codes without any explanation, comment, natural language and testcode.\nWarp your code with \"'''\"",
             1: "\nPlease write with no comments or explanations and warp your code with \"'''\"",
-            2: "\nRemember to exclude comments and test cases.\nWarp your code with \"'''\"",
+            2: "\nPlease exclude comments and test cases.\nWarp your code with \"'''\"",
             3: "\nYou should give the code without any supplementary text and warp your code with \"'''\"",
             4: "\nOmit any explanations or testing code. Keep the pure function only and warp it with \"'''\""
         }
@@ -192,4 +193,41 @@ class PromptModifier:
             for line in inputs:
                 line['sub_prompt_0'][1]['content'] += self._create_knowledge_ending(self._modify_plan['kle'])
 
+        return inputs
+
+    def change_solution_prompt(self, inputs):
+        if (self._modify_plan['soh'], self._modify_plan['egn'], self._modify_plan['soe']) == (0,0,0):
+            print(f"using default settings for solution part.")
+            return inputs
+
+        # replace the original prompt with header
+        if self._modify_plan['soh'] == 'D':
+            print(f"solution header !!DIVERSE!!")
+            for line in inputs:
+                line['sub_prompt_1'][3]['content'] = random.choice(list(self._corpus['soh'].values()))
+        else:
+            print(f"modifying {len(inputs)} samples, change the solution header to '{self._modify_plan['soh']}' version")
+            for line in inputs:
+                line['sub_prompt_1'][3]['content'] = self._corpus['soh'][self._modify_plan['soh']]
+
+        # add demonstrations
+        if self._modify_plan['egn'] == 'D':
+            print(f"demonstrations !!DIVERSE!!")
+            raise NotImplementedError
+        elif self._modify_plan['egn'] > 0:
+            print(f"modifying {len(inputs)} samples, adding '{self._modify_plan['egn']}' demonstrations")
+            raise NotImplementedError
+        else:
+            print(f"no extra demonstrations added")
+
+        # add solution ending
+        if self._modify_plan['soe'] == 'D':
+            print(f"solution header !!DIVERSE!!")
+            for line in inputs:
+                line['sub_prompt_1'][3]['content'] += random.choice(list(self._corpus['soe'].values()))
+        else:
+            print(
+                f"modifying {len(inputs)} samples, change the solution ending to '{self._modify_plan['soe']}' version")
+            for line in inputs:
+                line['sub_prompt_1'][3]['content'] += self._corpus['soe'][self._modify_plan['soe']]
         return inputs
