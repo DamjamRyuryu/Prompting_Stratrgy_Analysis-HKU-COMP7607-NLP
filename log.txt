@@ -24,6 +24,6 @@ pass@10         0.888   0.925   0.900   0.888
 
 diversity
 diverse parts   none    sys     kl      so      demon       all
-pass@1          0.658   0.640
-pass@3          0.822   0.821
-pass@10         0.888   0.925
+pass@1          0.658   0.640   0.664   0.638
+pass@3          0.822   0.821   0.825   0.817
+pass@10         0.888   0.925   0.925   0.900

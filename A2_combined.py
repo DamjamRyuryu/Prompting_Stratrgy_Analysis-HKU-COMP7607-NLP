@@ -20,7 +20,7 @@ EARLY_STOP = True
 #     preset : preset         str: print modifier.preset_options
 # 'mode' in PROMPT_MODIFIER can be either ('base', 0, 'none', 0, 0, 0) or ('default',)
 #       6 params means customized setting, 1 param means using existing presets
-PROMPT_MODIFIER = {'enabled': True, 'mode': ('base', 'D', 'D', 0, 0, 0), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
+PROMPT_MODIFIER = {'enabled': True, 'mode': ('base', 0, 'none', 0, 'D', 0), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
 DISTURBER = {'enabled': False, 'ratio': 1.0}
 BATCH_SIZE = 10
 TOP_K = 5

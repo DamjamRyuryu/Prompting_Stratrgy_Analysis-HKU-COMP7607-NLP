@@ -131,7 +131,7 @@ class PromptModifier:
                     else:
                         print(f"{v} is not a valid value for key {k}.")
                 elif k == 'egn':
-                    if v in range(self._max_testcase + 1):
+                    if v in range(self._max_testcase + 1) or v == 'D':
                         self._modify_plan[k] = v
                         print(f"key {k} = {v}.")
                     else:
@@ -298,6 +298,7 @@ class PromptModifier:
         # add demonstrations
         if self._modify_plan['egn'] == 'D':
             print(f"demonstrations !!DIVERSE!!")
+            self._load_necessary_testcases(inputs)
             for line in inputs:
                 _cases = random.randint(0, self._max_testcase)
                 if _cases > 0:
