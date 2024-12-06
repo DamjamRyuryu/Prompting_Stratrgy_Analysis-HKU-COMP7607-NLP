@@ -1,4 +1,5 @@
 import random
+import re
 from baseline import stream_jsonl
 
 class PromptModifier:
@@ -85,7 +86,10 @@ class PromptModifier:
         # some presets, use tuple for simpler presentation
         self.preset_options={
             'default': ('base', 0, 'none', 0, 0, 0),
-            'complex': ('long', 2, 'both', 1, 0, 0),
+            'complex-both': ('long', 2, 'both', 1, 0, 0),
+            'complex-package': ('long', 2, 'both', 1, 0, 0),
+            'complex-border': ('long', 2, 'both', 1, 0, 0),
+            'complex-none': ('long', 2, 'both', 1, 0, 0),
             'simple' : ('short', 4, 'none', 0, 0, 2),
             '!ULTRA_DIVERSE!' : ('D',) * 6,
         }
@@ -213,13 +217,20 @@ class PromptModifier:
             for _item in stream_jsonl(self._testcases_path) if _item['task_id'] in _lst]
         self.testcases_subset = _test_cases.copy()
 
-    def _get_test_case(self, task_id, num_case):
+    def _create_demonstration(self, task_id, num_case):
         _lst = [_line for _line in self.testcases_subset if _line['task_id'] == task_id]
         assert num_case <= len(_lst), f"too few test cases for {task_id}"
         _iter_cap = 10
         _unit = self._corpus['egn'].split('{%}')
         _string = ''
         _selected_indices = []
+        _re={
+            '"': r'"(.*?)"',
+            "'": r"'(.*?)'",
+            '(': r"\((.*?)\)",
+            '[': r"\[(.*?)\]",
+            '{': r"\{(.*?)\}",
+        }
         for i in range(num_case):
             for _ in range(_iter_cap):
                 try:
@@ -231,32 +242,40 @@ class PromptModifier:
                         _output = _temp[1].strip()
                         if _lst[_idx]['test'].startswith('not '):
                             if _output in ('True', 'False'):
-                                _output = {'True': False, 'False': True}[_output]
+                                _output = {'True': 'False', 'False': 'True'}[_output]
                             else:
+                                # bad case, skip
                                 continue
                         elif _output in ('True', 'False'):
-                            _output = {'True': True, 'False': False}[_output]
+                            pass
                         else:
                             # numerical result
                             if _output[0] in '0123456789':
-                                j = 0
-                                while _output[j] in '0123456789':
-                                    j += 1
-                                _output = _output[:j]
+                                _match = re.search(r"\d+", _output)
+                                _output = _match.group()
                             # string result
-                            elif _output[0] in ('"', "'"):
-
-                                raise NotImplementedError
+                            elif _output[0] in ('"', "'", '(', '[', '{'):
+                                _re_pattern = _re[_output[0]]
+                                _match = re.search(_re_pattern, _output)
+                                if _match:
+                                    _output = _match.group(1)
+                                    # add the pattern back
+                                    _output = _re_pattern[1] + _output + _re_pattern[-1]
+                                else:
+                                    print(_output)
+                                    raise NotImplementedError(f'bad output for {task_id}, try another.')
+                    elif ' != ' in _lst[_idx]['test']:
+                        continue
                     else:
+                        print(_lst[_idx]['test'])
                         raise NotImplementedError(f'bad test case for {task_id}, try another.')
                 except Exception as e:
                     print(str(e))
                     continue
-            _string += _unit[0] + str(i) + _unit[1]
-        raise NotImplementedError
-
-    def _create_demonstration(self, test_cases):
-        raise NotImplementedError
+                _string += _unit[0] + str(i) + _unit[1] + _input + _unit[2] + _output + _unit[3]
+                _selected_indices.append(_idx)
+                break
+        return _string
 
     def change_solution_prompt(self, inputs):
         if (self._modify_plan['soh'], self._modify_plan['egn'], self._modify_plan['soe']) == (0,0,0):
@@ -280,15 +299,13 @@ class PromptModifier:
                 _cases = random.randint(0, self._max_testcase)
                 if _cases > 0:
                     line['sub_prompt_1'][3]['content'] += '\n\nHere are some example test cases:\n'
-                    line['sub_prompt_1'][3]['content'] += self._create_demonstration(self._get_test_case(line['task_id'], _cases))
-            raise NotImplementedError
+                    line['sub_prompt_1'][3]['content'] += self._create_demonstration(line['task_id'], _cases)
         elif self._modify_plan['egn'] > 0:
             print(f"modifying {len(inputs)} samples, adding '{self._modify_plan['egn']}' demonstrations")
             self._load_necessary_testcases(inputs)
             for line in inputs:
                 line['sub_prompt_1'][3]['content'] += '\n\nHere are some example test cases:\n'
-                line['sub_prompt_1'][3]['content'] += self._create_demonstration(self._get_test_case(line['task_id'], self._modify_plan['egn']))
-            raise NotImplementedError
+                line['sub_prompt_1'][3]['content'] += self._create_demonstration(line['task_id'], self._modify_plan['egn'])
         else:
             print(f"no extra demonstrations added")
 

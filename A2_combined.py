@@ -17,7 +17,7 @@ EARLY_STOP = False
 #     soh : solution header   int:(>0<~5) or str: 'D'
 #     egn : example number    int:(>0<~3) or str: 'D'
 #     soe : solution end      int:(>0<~3) or str: 'D'
-#     preset : preset         str: (default/complex/simple/!ULTRA_DIVERSE!)
+#     preset : preset         str: print modifier.preset_options
 # 'mode' in PROMPT_MODIFIER can be either ('base', 0, 'none', 0, 0, 0) or ('default',)
 #       6 params means customized setting, 1 param means using existing presets
 PROMPT_MODIFIER = {'enabled': True, 'mode': ('simple',), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
@@ -135,7 +135,6 @@ if __name__ == '__main__':
             file_tag = ''
         else:
             file_tag = '_' + '-'.join(f"{item}" for item in PROMPT_MODIFIER['mode'])
-        modifier._modify_plan['egn'] = 1
     else:
         file_tag = ''
         modifier = None
