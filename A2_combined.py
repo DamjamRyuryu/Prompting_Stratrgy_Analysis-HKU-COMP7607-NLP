@@ -8,7 +8,7 @@ import random
 from A2_prompt_disturber import disturb_rationale
 from A2_prompt_modifier import PromptModifier
 
-EARLY_STOP = False
+EARLY_STOP = True
 # the setting determining all the sections of the prompt (using dict key to denote):
 #     (">@<"means @ is the default value, using D for a single column will choose randomly for it)
 #     sys : system prompt     str:(short/>base</long/D)
@@ -20,11 +20,11 @@ EARLY_STOP = False
 #     preset : preset         str: print modifier.preset_options
 # 'mode' in PROMPT_MODIFIER can be either ('base', 0, 'none', 0, 0, 0) or ('default',)
 #       6 params means customized setting, 1 param means using existing presets
-PROMPT_MODIFIER = {'enabled': True, 'mode': ('simple',), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
+PROMPT_MODIFIER = {'enabled': True, 'mode': ('base', 'D', 'D', 0, 0, 0), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
 DISTURBER = {'enabled': False, 'ratio': 1.0}
 BATCH_SIZE = 10
 TOP_K = 5
-OUTPUTFILE = "A2_test_"
+OUTPUTFILE = "A2_test"
 TEST_FILE = "pre_generated_data/shortened_generated_testcase.jsonl"
 # following prompts templates are based on the method from this paper:https://arxiv.org/pdf/2306.02907
 SELF_REFINEMENT={
@@ -153,7 +153,6 @@ if __name__ == '__main__':
     concatenate_dict(history, prompts, ['sub_prompt_0'], ['prompt'])
 
     # Step 1: request for knowledge
-    slow_print('first step start, ask for knowledge...')
     history = get_batch(history, BATCH_SIZE)
 
     # TODO 1: system & knowledge prompt modification
@@ -164,6 +163,7 @@ if __name__ == '__main__':
         history = modifier.change_knowledge_prompt(history)
 
     step = 0
+    slow_print('first step start, ask for knowledge...')
     if not os.path.exists(CHECKPOINTS['step 1'] + file_tag + '.jsonl'):
         res_1 = service.request_response([line[f'sub_prompt_{step}'] for line in history])
         write_jsonl(CHECKPOINTS['step 1']  + file_tag + '.jsonl', [{'response': item} for item in res_1])
@@ -181,14 +181,13 @@ if __name__ == '__main__':
         print('disturber off')
 
     # Step 2: request for solution
-    slow_print('knowledge get, ask for solution...')
     step = next_step_prompts(history, res, step)
-
     # TODO 3: system & knowledge prompt modification
     if modifier:
         # switch system prompt
         history = modifier.change_solution_prompt(history)
 
+    slow_print('knowledge get, ask for solution...')
     if not os.path.exists(CHECKPOINTS['step 2'] + file_tag + '.jsonl'):
         res = service.request_response([line[f'sub_prompt_{step}'] for line in history])  # the response is solution now
         write_jsonl(CHECKPOINTS['step 2'] + file_tag + '.jsonl', [{'response': item} for item in res])
@@ -197,7 +196,7 @@ if __name__ == '__main__':
 
     if EARLY_STOP:
         concatenate_str(history, res, 'output', processing=True)
-        write_jsonl(OUTPUTFILE + file_tag, history)
+        write_jsonl(OUTPUTFILE + file_tag + '.jsonl', history)
         sys.exit('Early stop activated.')
 
     # Step 3: load pre-generated testcases and verify the samples
@@ -226,6 +225,6 @@ if __name__ == '__main__':
     res = service.request_response([item['sub_prompt_2'] for item in sub_list])
     concatenate_str(sub_list, res, 'output', processing=True)
     concatenate_dict(output, sub_list, ['output'], ['output'], has_indices=True)
-    write_jsonl(OUTPUTFILE +'refined_'+ file_tag, output)
+    write_jsonl(OUTPUTFILE +'refined_'+ file_tag + '.jsonl', output)
     end_time = time.perf_counter()
     print(f'DONE,wall_clock time:{end_time-start_time}')

@@ -87,9 +87,9 @@ class PromptModifier:
         self.preset_options={
             'default': ('base', 0, 'none', 0, 0, 0),
             'complex-both': ('long', 2, 'both', 1, 0, 0),
-            'complex-package': ('long', 2, 'both', 1, 0, 0),
-            'complex-border': ('long', 2, 'both', 1, 0, 0),
-            'complex-none': ('long', 2, 'both', 1, 0, 0),
+            'complex-package': ('long', 2, 'package', 1, 0, 0),
+            'complex-border': ('long', 2, 'border', 1, 0, 0),
+            'complex-none': ('long', 2, 'none', 1, 0, 0),
             'simple' : ('short', 4, 'none', 0, 0, 2),
             '!ULTRA_DIVERSE!' : ('D',) * 6,
         }
@@ -110,7 +110,7 @@ class PromptModifier:
         if not kwargs:
             print('No value received')
         elif 'preset' in kwargs:
-            if kwargs['preset'] in ('default', 'complex', 'simple', '!ULTRA_DIVERSE!'):
+            if kwargs['preset'] in self.preset_options:
                 # assume the dict is not ordered, add robustness
                 for i in range(len(self._modify_plan)):
                     self._modify_plan[_keys[i]] = self.preset_options[kwargs['preset']][i]
@@ -120,15 +120,18 @@ class PromptModifier:
         else:
             # customize set
             for k, v in kwargs.items():
-                if k in ('sys', 'klh', 'kle', 'soh', 'egn', 'soe'):
+                if k in ('sys', 'klh', 'kle', 'soh', 'soe'):
                     # make sure the input key is valid
-                    if v in self._corpus[k] or v == 'D':
+                    if k == 'kle' and v in ('none', 'both'):
                         self._modify_plan[k] = v
                         print(f"key {k} = {v}.")
-                    elif k == 'kle' and v in ('none', 'both'):
+                    elif v in self._corpus[k] or v == 'D':
                         self._modify_plan[k] = v
                         print(f"key {k} = {v}.")
-                    elif k == 'egn' and v in range(4):
+                    else:
+                        print(f"{v} is not a valid value for key {k}.")
+                elif k == 'egn':
+                    if v in range(self._max_testcase + 1):
                         self._modify_plan[k] = v
                         print(f"key {k} = {v}.")
                     else:
