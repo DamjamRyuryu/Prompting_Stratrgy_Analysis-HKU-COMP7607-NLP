@@ -20,7 +20,7 @@ EARLY_STOP = True
 #     preset : preset         str: print modifier.preset_options
 # 'mode' in PROMPT_MODIFIER can be either ('base', 0, 'none', 0, 0, 0) or ('default',)
 #       6 params means customized setting, 1 param means using existing presets
-PROMPT_MODIFIER = {'enabled': True, 'mode': ('base', 0, 'none', 0, 'D', 0), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
+PROMPT_MODIFIER = {'enabled': True, 'mode': ('!ULTRA_DIVERSE!',), 'keys': ('sys', 'klh', 'kle', 'soh', 'egn', 'soe')}
 DISTURBER = {'enabled': False, 'ratio': 1.0}
 BATCH_SIZE = 10
 TOP_K = 5
@@ -225,6 +225,6 @@ if __name__ == '__main__':
     res = service.request_response([item['sub_prompt_2'] for item in sub_list])
     concatenate_str(sub_list, res, 'output', processing=True)
     concatenate_dict(output, sub_list, ['output'], ['output'], has_indices=True)
-    write_jsonl(OUTPUTFILE +'refined_'+ file_tag + '.jsonl', output)
+    write_jsonl(OUTPUTFILE + file_tag + '_refined' + '.jsonl', output)
     end_time = time.perf_counter()
     print(f'DONE,wall_clock time:{end_time-start_time}')
