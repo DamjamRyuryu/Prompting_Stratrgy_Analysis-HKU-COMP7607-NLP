@@ -30,7 +30,7 @@ def args_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("--problem_file", type=str, required=True, help="problem prompt")
     parser.add_argument("--output_file", type=str, required=True, help="jsonl file including the output")
-    _args = parser.parse_args(args=["--problem_file", 'temp_folder/sampled_questions.jsonl', "--output_file", 'A2_test_refined_no_ds.jsonl'])
+    _args = parser.parse_args(args=["--problem_file", 'temp_folder/sampled_questions.jsonl', "--output_file", 'A2_test_!ULTRA_DIVERSE!_no_ds_refined.jsonl'])
     return _args
 
 if __name__ == '__main__':

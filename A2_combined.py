@@ -8,7 +8,7 @@ import random
 from A2_prompt_disturber import disturb_rationale
 from A2_prompt_modifier import PromptModifier
 
-EARLY_STOP = True
+EARLY_STOP = False
 # the setting determining all the sections of the prompt (using dict key to denote):
 #     (">@<"means @ is the default value, using D for a single column will choose randomly for it)
 #     sys : system prompt     str:(short/>base</long/D)
@@ -46,7 +46,7 @@ CHECKPOINTS = {
     'step 0': 'temp_folder/sampled_data.jsonl',
     'step 1': 'temp_folder/combined_1_temp',
     'step 2': 'temp_folder/combined_2_temp',
-    'step 3': 'temp_folder/combined_3_temp.jsonl',
+    'step 3': 'temp_folder/combined_3_temp',
 }
 
 def uni_agreement_afb(_results: list[dict], k: int=3, q_cnt: int = 164) -> dict[str, list | dict]:
@@ -207,12 +207,12 @@ if __name__ == '__main__':
         testcase_list = [case for case in stream_jsonl(TEST_FILE)]
 
     slow_print("Verifying solutions...")
-    if not os.path.exists(CHECKPOINTS['step 3']):
+    if not os.path.exists(CHECKPOINTS['step 3'] + file_tag + '.jsonl'):
         sample_list = match_solution_testcases(history, res, testcase_list)
         test_results = check_testcase(sample_list, inputs, verify=True, n_workers=24)
-        write_jsonl(CHECKPOINTS['step 3'], test_results)
+        write_jsonl(CHECKPOINTS['step 3'] + file_tag + '.jsonl', test_results)
     else:
-        test_results = [item for item in stream_jsonl(CHECKPOINTS['step 3'])]
+        test_results = [item for item in stream_jsonl(CHECKPOINTS['step 3'] + file_tag + '.jsonl')]
 
     # Step 4: go over uni-agreement and request LLM for refinement
     feedbacks = uni_agreement_afb(test_results, TOP_K, len(inputs))  # find top k solution
