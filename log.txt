@@ -24,9 +24,9 @@ pass@10         0.888   0.925   0.900   0.888
 
 diversity
 diverse parts   none    sys     kl      so      demon   all
-pass@1          0.658   0.640   0.664   0.638   0.656   0.625
-pass@3          0.822   0.821   0.825   0.817   0.814   0.823
-pass@10         0.888   0.925   0.925   0.900   0.888   0.913
+pass@1          0.658   0.640   0.664   0.638   0.689   0.625
+pass@3          0.822   0.821   0.825   0.817   0.858   0.823
+pass@10         0.888   0.925   0.925   0.900   0.913   0.913
 
 self-refine
 previous cases  base    max-disturb max-complex all
