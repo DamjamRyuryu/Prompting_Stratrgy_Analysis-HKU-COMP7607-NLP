@@ -8,6 +8,9 @@ Then you get the output of the method, which has already been included in the .z
 
 <font size=1> This is not applicable because the API key of the LLM is removed. Provide your own key in "utils.py" if you want to generate results.</font>
 
+<font size = 1 color="yellow"> This project only samples parts of the HumanEval dataset for processing due to time constraint.
+Modification is needed if you want to test the whole dataset. </font>
+
 <font size=4>2. Test the results </font>
 
 Go to my_evaluation.py edit the "--output_file" to specify the result you want to examine.
